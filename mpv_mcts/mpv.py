@@ -1,3 +1,12 @@
+"""
+Created on Tue 06/01/2020 12:07:20 2020
+This piece of software is bound by The Apache License
+Copyright (c) 2019 Prashank Kadam
+Code written by : Prashank Kadam
+User name - prashank
+Email ID : kadam.pr@husky.neu.edu
+version : 1.0
+"""
 # Copyright 2019 DeepMind Technologies Ltd. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,13 +22,14 @@
 # limitations under the License.
 
 # Lint as: python3
-"""A basic AlphaZero implementation.
+"""A basic Multiple Policy-Value MCTS implementation.
 
-This implements the AlphaZero training algorithm. It spawns N actors which feed
-trajectories into a replay buffer which are consumed by a learner. The learner
-generates new weights, saves a checkpoint, and tells the actors to update. There
-are also M evaluators running games continuously against a standard MCTS+Solver,
-though each at a different difficulty (ie number of simulations for MCTS).
+This implements the Multiple Policy-Value MCTS training algorithm. It spawns N 
+actors which feed trajectories into a replay buffer which are consumed by a
+learner. The learner generates new weights, saves a checkpoint, and tells the
+ actors to update. There are also M evaluators running games continuously 
+ against a standard MCTS+Solver, though each at a different difficulty (ie 
+ number of simulations for MCTS).
 
 Due to the multi-process nature of this algorithm the logs are written to files,
 one per process. The learner logs are also output to stdout. The checkpoints are
@@ -55,6 +65,8 @@ from open_spiel.python.utils import file_logger
 from open_spiel.python.utils import spawn
 from open_spiel.python.utils import stats
 
+from time import sleep
+
 import pudb
 
 
@@ -89,12 +101,39 @@ class Buffer(object):
         self.max_size = max_size
         self.data = []
         self.total_seen = 0  # The number of items that have passed through.
+        self.idx = 0
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        self.idx += 1
+        try:
+            return self.data[self.idx - 1]
+        except IndexError:
+            self.idx = 0
+            raise StopIteration
+
+    def __getitem__(self, k):
+        return self.data[k]
+
+    def __setitem__(self, k, v):
+        self.data[k] = v
 
     def __len__(self):
         return len(self.data)
 
     def append(self, val):
         return self.extend([val])
+
+    def append_buffer(self, val):
+        self.total_seen += len(val)
+        return self.data.extend(val)
+
+    def remove_buffer(self, val):
+        self.total_seen -= len(val)
+        self.data = [v for i, v in enumerate(self.data) if i not in val]
+        return self.data
 
     def extend(self, batch):
         batch = list(batch)
@@ -442,7 +481,7 @@ def learner(*, game, config, config_mpv, actors_1, actors_2, evaluators_1, evalu
     """A learner that consumes the replay buffer and trains the network."""
 
     stage_count = 7
-    total_trajectories = 0
+    total_trajectories_1, total_trajectories_2 = 0, 0
 
     def learner_inner(config_inner):
         logger.also_to_stdout = True
@@ -457,8 +496,6 @@ def learner(*, game, config, config_mpv, actors_1, actors_2, evaluators_1, evalu
         logger.print("Initial checkpoint:", save_path)
         broadcast_fn(save_path)
 
-        data_log = data_logger.DataLoggerJsonLines(config_inner.path, "learner", True)
-
         value_accuracies = [stats.BasicStats() for _ in range(stage_count)]
         value_predictions = [stats.BasicStats() for _ in range(stage_count)]
         game_lengths = stats.BasicStats()
@@ -466,20 +503,24 @@ def learner(*, game, config, config_mpv, actors_1, actors_2, evaluators_1, evalu
         outcomes = stats.HistogramNamed(["Player1", "Player2", "Draw"])
         evals = [Buffer(config_inner.evaluation_window) for _ in range(config_inner.eval_levels)]
 
-        return replay_buffer, learn_rate, model, save_path, data_log, value_accuracies, value_predictions, \
+        return replay_buffer, learn_rate, model, save_path, value_accuracies, value_predictions, \
                game_lengths, game_lengths_hist, outcomes, evals
 
-    replay_buffer_1, learn_rate_1, model_1, save_path, data_log, value_accuracies_1, \
+    replay_buffer_1, learn_rate_1, model_1, save_path, value_accuracies_1, \
     value_predictions_1, game_lengths_1, game_lengths_hist_1, outcomes_1, evals_1 = learner_inner(config)
 
-    replay_buffer_2, learn_rate_2, model_2, save_path, data_log, value_accuracies_2, \
+    data_log_1 = data_logger.DataLoggerJsonLines(config.path, "learner_1", True)
+
+    replay_buffer_2, learn_rate_2, model_2, save_path, value_accuracies_2, \
     value_predictions_2, game_lengths_2, game_lengths_hist_2, outcomes_2, evals_2 = learner_inner(config_mpv)
 
-    def trajectory_generator():
+    data_log_2 = data_logger.DataLoggerJsonLines(config_mpv.path, "learner_2", True)
+
+    def trajectory_generator(actors_gen):
         """Merge all the actor queues into a single generator."""
         while True:
             found = 0
-            for actor_process in actors_1:
+            for actor_process in actors_gen:
                 try:
                     yield actor_process.queue.get_nowait()
                 except spawn.Empty:
@@ -490,11 +531,11 @@ def learner(*, game, config, config_mpv, actors_1, actors_2, evaluators_1, evalu
                 time.sleep(0.01)  # 10ms
 
     def collect_trajectories(game_lengths, game_lengths_hist, outcomes, replay_buffer,
-                             value_accuracies, value_predictions, learn_rate):
+                             value_accuracies, value_predictions, learn_rate, actors):
         """Collects the trajectories from actors into the replay buffer."""
         num_trajectories = 0
         num_states = 0
-        for trajectory in trajectory_generator():
+        for trajectory in trajectory_generator(actors):
             num_trajectories += 1
             num_states += len(trajectory.states)
             game_lengths.add(len(trajectory.states))
@@ -525,12 +566,15 @@ def learner(*, game, config, config_mpv, actors_1, actors_2, evaluators_1, evalu
                 break
         return num_trajectories, num_states
 
-    def learn(step, replay_buffer, model, config_learn):
+    def learn(step, replay_buffer, model, config_learn, model_num):
         """Sample from the replay buffer, update weights and save a checkpoint."""
         losses = []
-        for _ in range(len(replay_buffer) // config_learn.train_batch_size):
+        mpv_upd = Buffer(len(replay_buffer) / 3)
+        for i in range(len(replay_buffer) // config_learn.train_batch_size):
             data = replay_buffer.sample(config_learn.train_batch_size)
-            losses.append(model.update(data))      # weight update
+            losses.append(model.update(data))  # weight update
+            if (i + 1) % 4 == 0:
+                mpv_upd.append_buffer(data)  # replay buffer sample for bigger n/w
 
         # Always save a checkpoint, either for keeping or for loading the weights to
         # the actors. It only allows numbers, so use -1 as "latest".
@@ -539,7 +583,11 @@ def learner(*, game, config, config_mpv, actors_1, actors_2, evaluators_1, evalu
         losses = sum(losses, model_lib.Losses(0, 0, 0)) / len(losses)
         logger.print(losses)
         logger.print("Checkpoint saved:", save_path)
-        return save_path, losses
+
+        if model_num == 1:
+            return save_path, losses, mpv_upd
+        else:
+            return save_path, losses
 
     last_time = time.time() - 60
     for step in itertools.count(1):
@@ -558,9 +606,10 @@ def learner(*, game, config, config_mpv, actors_1, actors_2, evaluators_1, evalu
 
         # pudb.set_trace()
         num_trajectories_1, num_states_1 = collect_trajectories(game_lengths_1, game_lengths_hist_1, outcomes_1,
-                                                            replay_buffer_1, value_accuracies_1, value_predictions_1,
-                                                            learn_rate_1)
-        total_trajectories += num_trajectories_1
+                                                                replay_buffer_1, value_accuracies_1,
+                                                                value_predictions_1,
+                                                                learn_rate_1, actors_1)
+        total_trajectories_1 += num_trajectories_1
         now = time.time()
         seconds = now - last_time
         last_time = now
@@ -570,12 +619,38 @@ def learner(*, game, config, config_mpv, actors_1, actors_2, evaluators_1, evalu
             ("Collected {:5} states from {:3} games, {:.1f} states/s. "
              "{:.1f} states/(s*actor), game length: {:.1f}").format(
                 num_states_1, num_trajectories_1, num_states_1 / seconds,
-                                              num_states_1 / (config.actors * seconds),
-                                              num_states_1 / num_trajectories_1))
+                                                  num_states_1 / (config.actors * seconds),
+                                                  num_states_1 / num_trajectories_1))
         logger.print("Buffer size: {}. States seen: {}".format(
             len(replay_buffer_1), replay_buffer_1.total_seen))
 
-        save_path, losses_1 = learn(step, replay_buffer_1, model_1, config)
+        save_path, losses_1, mpv_upd_1 = learn(step, replay_buffer_1, model_1, config, 1)
+
+        def update_buffer(mpv_upd, replay_buffer, config_buffer):
+            # print("1", replay_buffer.data[0:2])
+            # print("2", mpv_upd.data)
+            # print("3", replay_buffer.sample(config_buffer.train_batch_size))
+            for i in range((len(replay_buffer) // config_buffer.train_batch_size) // 4):
+                # replay_buffer.data.remove(replay_buffer.sample(config_buffer.train_batch_size))
+                # random.sample(list(i for i, _ in enumerate(l)), 4)
+                # replay_buffer.remove_buffer(replay_buffer.sample(config_buffer.train_batch_size))
+                sampled_list = random.sample(list(i for i, _ in enumerate(replay_buffer)),
+                                             config_buffer.train_batch_size)
+
+                # print("Sampled list  ", sampled_list)
+                replay_buffer.remove_buffer(sampled_list)
+                # for idx in sampled_list:
+                #     # index_buf = int(idx)
+                #     replay_buffer.remove_buffer(idx)
+                # replay_buffer.remove_buffer(random.sample(list(i for i, _ in enumerate(replay_buffer)),
+                #                                           config_buffer.train_batch_size))
+
+            replay_buffer.append_buffer(mpv_upd)
+            random.shuffle(replay_buffer)
+
+            return replay_buffer
+
+        # sleep(10)
 
         for eval_process in evaluators_1:
             while True:
@@ -585,15 +660,16 @@ def learner(*, game, config, config_mpv, actors_1, actors_2, evaluators_1, evalu
                 except spawn.Empty:
                     break
 
+
         batch_size_stats = stats.BasicStats()  # Only makes sense in C++.
         batch_size_stats.add(1)
 
-        data_log.write({
+        data_log_1.write({
             "step": step,
             "total_states": replay_buffer_1.total_seen,
             "states_per_s": num_states_1 / seconds,
             "states_per_s_actor": num_states_1 / (config.actors * seconds),
-            "total_trajectories": total_trajectories,
+            "total_trajectories": total_trajectories_1,
             "trajectories_per_s": num_trajectories_1 / seconds,
             "queue_size": 0,  # Only available in C++.
             "game_length": game_lengths_1.as_dict,
@@ -627,11 +703,11 @@ def learner(*, game, config, config_mpv, actors_1, actors_2, evaluators_1, evalu
         })
         logger.print()
 
-
         num_trajectories_2, num_states_2 = collect_trajectories(game_lengths_2, game_lengths_hist_2, outcomes_2,
-                                                            replay_buffer_2, value_accuracies_2, value_predictions_2,
-                                                            learn_rate_2)
-        total_trajectories += num_trajectories_2
+                                                                replay_buffer_2, value_accuracies_2,
+                                                                value_predictions_2,
+                                                                learn_rate_2, actors_2)
+        total_trajectories_2 += num_trajectories_2
         now = time.time()
         seconds = now - last_time
         last_time = now
@@ -641,12 +717,17 @@ def learner(*, game, config, config_mpv, actors_1, actors_2, evaluators_1, evalu
             ("Collected {:5} states from {:3} games, {:.1f} states/s. "
              "{:.1f} states/(s*actor), game length: {:.1f}").format(
                 num_states_2, num_trajectories_2, num_states_2 / seconds,
-                                              num_states_2 / (config.actors * seconds),
-                                              num_states_2 / num_trajectories_2))
+                                                  num_states_2 / (config.actors * seconds),
+                                                  num_states_2 / num_trajectories_2))
         logger.print("Buffer size: {}. States seen: {}".format(
             len(replay_buffer_1), replay_buffer_1.total_seen))
 
-        save_path, losses_2 = learn(step, replay_buffer_2, model_2, config_mpv)
+        # pudb.set_trace()
+        replay_buffer_2 = update_buffer(mpv_upd_1, replay_buffer_2, config_mpv)
+
+        save_path, losses_2 = learn(step, replay_buffer_2, model_2, config_mpv, 2)
+
+        # sleep(10)
 
         for eval_process in evaluators_2:
             while True:
@@ -656,12 +737,12 @@ def learner(*, game, config, config_mpv, actors_1, actors_2, evaluators_1, evalu
                 except spawn.Empty:
                     break
 
-        data_log.write({
+        data_log_2.write({
             "step": step,
             "total_states": replay_buffer_2.total_seen,
             "states_per_s": num_states_2 / seconds,
             "states_per_s_actor": num_states_2 / (config.actors * seconds),
-            "total_trajectories": total_trajectories,
+            "total_trajectories": total_trajectories_2,
             "trajectories_per_s": num_trajectories_2 / seconds,
             "queue_size": 0,  # Only available in C++.
             "game_length": game_lengths_2.as_dict,
@@ -701,13 +782,13 @@ def learner(*, game, config, config_mpv, actors_1, actors_2, evaluators_1, evalu
         broadcast_fn(save_path)
 
 
-def alpha_zero(config: Config):
+def mpv(config: Config):
     """Start all the worker processes for a full alphazero setup."""
 
     # Separate the configs for the two models:
     config_1, config_2 = config_split(config)
 
-    def inner_one(config):
+    def inner_one(config, model_num):
 
         game = pyspiel.load_game(config.game)
         config = config._replace(
@@ -739,8 +820,12 @@ def alpha_zero(config: Config):
         print("Model type: %s(%s, %s)" % (config.nn_model, config.nn_width,
                                           config.nn_depth))
 
-        with open(os.path.join(config.path, "config.json"), "w") as fp:
-            fp.write(json.dumps(config._asdict(), indent=2, sort_keys=True) + "\n")
+        if model_num == 1:
+            with open(os.path.join(config.path, "config_1.json"), "w") as fp:
+                fp.write(json.dumps(config._asdict(), indent=2, sort_keys=True) + "\n")
+        else:
+            with open(os.path.join(config.path, "config_2.json"), "w") as fp:
+                fp.write(json.dumps(config._asdict(), indent=2, sort_keys=True) + "\n")
 
         actors = [spawn.Process(actor, kwargs={"game": game, "config": config, "num": i})
                   for i in range(config.actors)]
@@ -749,8 +834,10 @@ def alpha_zero(config: Config):
 
         return game, config, actors, evaluators
 
-    game_1, config_1, actors_1, evaluators_1 = inner_one(config_1)
-    game_2, config_2, actors_2, evaluators_2 = inner_one(config_2)
+    game_1, config_1, actors_1, evaluators_1 = inner_one(config_1, 1)
+    # sleep(10)
+    game_2, config_2, actors_2, evaluators_2 = inner_one(config_2, 2)
+    # sleep(10)
 
     def broadcast(msg):
         for proc in actors_1 + evaluators_1 + actors_2 + evaluators_2:
