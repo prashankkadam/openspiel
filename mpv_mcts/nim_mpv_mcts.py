@@ -51,12 +51,12 @@ def main(unused_argv):
       train_batch_size_1=128,
       replay_buffer_size_1=2**14,
       replay_buffer_reuse_1=4,
-      max_steps_1=10,
+      max_steps_1=20,
       checkpoint_freq_1=5,
 
       actors_1=4,
       evaluators_1=4,
-      uct_c_1=2,                  # Exploration term
+      uct_c_1=1,                  # Exploration term
       max_simulations_1=20,
       policy_alpha_1=0.25,
       policy_epsilon_1=1,
@@ -66,7 +66,7 @@ def main(unused_argv):
       eval_levels_1=7,
 
       nn_model_1="resnet",
-      nn_width_1=64,
+      nn_width_1=8,
       nn_depth_1=4,
       observation_shape_1=None,
       output_size_1=None,
@@ -76,22 +76,22 @@ def main(unused_argv):
       train_batch_size_2=128,
       replay_buffer_size_2=2 ** 14,
       replay_buffer_reuse_2=4,
-      max_steps_2=10,
+      max_steps_2=20,
       checkpoint_freq_2=5,
 
       actors_2=4,
       evaluators_2=4,
-      uct_c_2=0.75,                   # Exploitation term
-      max_simulations_2=10,
+      uct_c_2=0.10,                   # Exploitation term
+      max_simulations_2=5,
       policy_alpha_2=0.25,
-      policy_epsilon_2=1,
-      temperature_2=1,
+      policy_epsilon_2=10,
+      temperature_2=0.2,
       temperature_drop_2=4,
       evaluation_window_2=50,
       eval_levels_2=7,
 
       nn_model_2="resnet",
-      nn_width_2=64,
+      nn_width_2=8,
       nn_depth_2=4,
       observation_shape_2=None,
       output_size_2=None,
