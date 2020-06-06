@@ -13,6 +13,9 @@ The following are the results for basic tests with vanilla Alpha-Zero using UCT 
 
 * Alpha-Zero (UCT) - [uct_c = 1, simulations = 5]:
 
+![Figure_1](https://user-images.githubusercontent.com/17771219/83939685-dbad4280-a7ac-11ea-891c-77bd94920583.png)
+
 * Alpha-Zero (Metacontroller) - [uct_c = 1, simulations = 5, epsilon = 0.7, tao = 50]:
 
+![Figure_1](https://user-images.githubusercontent.com/17771219/83939691-e49e1400-a7ac-11ea-99f0-c588a9309306.png)
 
