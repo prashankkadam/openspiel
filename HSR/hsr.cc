@@ -68,8 +68,6 @@ std::string StateToString(CellState state) {
   switch (state) {
     case CellState::kEmpty:
       return ".";
-//    case CellState::kNought:
-//      return "o";
     case CellState::kCross:
       return "x";
     default:
@@ -81,13 +79,18 @@ void HSRState::DoApplyAction(Action move) {
   if (current_player_ == 0){
     SPIEL_CHECK_EQ(board_[move], CellState::kEmpty);
     board_[move] = PlayerToState(CurrentPlayer());
-    if (HasSafeRung(current_player_)) {
-      outcome_ = current_player_;
-    }
+    previous_move_ = move;
+    if (HasSafeRung(current_player_)) { outcome_ = current_player_; }
     num_moves_ += 1;
+    current_tests_ += 1;
+    if (move >= kHighestSafeRung) { current_jars_ -= 1; }
+  } else if (current_player_ == 1) {
+     current_part_ = move;
   }
 
   if (IsFull()) { outcome_ = Player{1}; }
+  if (current_tests_ >= kTests) { outcome_ = Player{1}; }
+  if (current_jars_ == 0) { outcome_ = Player{1}; }
 
   current_player_ = 1 - current_player_;
 }
@@ -96,16 +99,34 @@ std::vector<Action> HSRState::LegalActions() const {
   if (IsTerminal()) return {};
   // Can move in any empty cell.
   std::vector<Action> moves;
-  bool op_moves [] = { true, false };
 
   if (current_player_ == 0){
-     for (int cell = 0; cell < kNumCells; ++cell) {
-        if (board_[cell] == CellState::kEmpty) {
-          moves.push_back(cell);
+     if (current_part_ == -1 || current_part_ == 0) {
+        for (int cell = 0; cell < previous_move_; ++cell) {
+           if (board_[cell] == CellState::kEmpty) {
+             moves.push_back(cell);
+           }
+        }
+     } else if (current_part_ == 1) {
+        for (int cell = previous_move_ ; cell < kNumCells; ++cell) {
+           if (board_[cell] == CellState::kEmpty) {
+             moves.push_back(cell);
+           }
         }
      }
-  } else {
-     moves.insert (moves.begin(), op_moves, op_moves+2);
+  } else if (current_player_ == 1) {
+     for (int cell = 0; cell < previous_move_; ++cell) {
+        if (board_[cell] == CellState::kEmpty) {
+           moves.push_back(-1);
+           break;
+        }
+     }
+     for (int cell = previous_move_; cell < kNumCells; ++cell) {
+        if (board_[cell] == CellState::kEmpty) {
+           moves.push_back(1);
+           break;
+        }
+     }
   }
   return moves;
 }
@@ -116,21 +137,9 @@ std::string HSRState::ActionToString(Player player,
                       action_id / kNumCols, ",", action_id % kNumCols, ")");
 }
 
-//bool HSRState::HasLine(Player player) const {
-//  CellState c = PlayerToState(player);
-//  return (board_[0] == c && board_[1] == c && board_[2] == c) ||
-//         (board_[3] == c && board_[4] == c && board_[5] == c) ||
-//         (board_[6] == c && board_[7] == c && board_[8] == c) ||
-//         (board_[0] == c && board_[3] == c && board_[6] == c) ||
-//         (board_[1] == c && board_[4] == c && board_[7] == c) ||
-//         (board_[2] == c && board_[5] == c && board_[8] == c) ||
-//         (board_[0] == c && board_[4] == c && board_[8] == c) ||
-//         (board_[2] == c && board_[4] == c && board_[6] == c);
-//}
-
 bool HSRState::HasSafeRung(Player player) const {
   CellState c = PlayerToState(player);
-  return (board_[2] == c);
+  return (board_[kHighestSafeRung - 1] == c);
 }
 
 bool HSRState::IsFull() const { return num_moves_ == kNumCells; }
