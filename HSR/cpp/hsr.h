@@ -23,7 +23,7 @@
 
 #include "open_spiel/spiel.h"
 
-// Simple game of Noughts and Crosses:
+// Simple game of HSR:
 // https://en.wikipedia.org/wiki/hsr
 //
 // Parameters: none
@@ -34,17 +34,16 @@ namespace hsr {
 // Constants.
 inline constexpr int kNumPlayers = 2;
 inline constexpr int kNumRows = 1;
-inline constexpr int kNumCols = 16;                      // this is the n (number of rungs)
+inline constexpr int kNumCols = 8;                      // this is the n (number of rungs)
 inline constexpr int kNumCells = kNumRows * kNumCols;
-inline constexpr int kCellStates = 1 + kNumPlayers;  // empty, 'x', and 'o'.
+inline constexpr int kCellStates = kNumPlayers;         // empty, 'x'.
 
-inline constexpr int kTests = 4;                        // this is the q (number of tests)
-inline constexpr int kJars = 4;                         // this is the k (number of jars)
-inline constexpr int kHighestSafeRung = 4;              // this is the highest safe rung
+inline constexpr int kTests = 3;                        // this is the q (number of tests)
+inline constexpr int kJars = 3;                         // this is the k (number of jars)
 
 // states calculated based on the possible combinations of 4 actions (number of tests). Note that this will be
 // an optimistic estimate
-inline constexpr int kNumberStates = 4096;
+inline constexpr int kNumberStates = 336;
 
 // State of a cell.
 enum class CellState {
@@ -84,7 +83,6 @@ class HSRState : public State {
   void DoApplyAction(Action move) override;
 
  private:
-  bool HasSafeRung(Player player) const;  // Does this player have the safe rung?
   bool IsFull() const;                // Is the board full?
   Player current_player_ = 0;         // Player zero goes first
   Player outcome_ = kInvalidPlayer;
