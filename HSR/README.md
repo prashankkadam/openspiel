@@ -27,3 +27,19 @@ Players: mcts mcts
 Overall wins [0, 1]
 Overall returns [-1.0, 1.0]
 ```
+
+### Network configuration is low to stop faster convergence:
+HSR config: (k,q,n) = (2,3,7) \
+Running HSR with Alpha-Zero:
+![hsr_az_simplified(2,3,7)](https://user-images.githubusercontent.com/17771219/85291967-3b704280-b469-11ea-844d-fba6a7677a00.png)
+
+Running HSR with MPV-MCTS:
+![hsr_mpv_simplified(2,3,7)](https://user-images.githubusercontent.com/17771219/85291982-3f03c980-b469-11ea-910b-25ed97710507.png)
+
+### Network configuration is high so convergence if much faster for player 2:
+HSR config: (k,q,n) = (2,3,7) \
+Running HSR with Alpha-Zero:
+![hsr(2,3,7)](https://user-images.githubusercontent.com/17771219/85293180-fcdb8780-b46a-11ea-9926-d5ee2b1d8bc3.png)
+
+Running HSR with MPV-MCTS:
+![hsr_mpv(2,3,7)](https://user-images.githubusercontent.com/17771219/85293188-ffd67800-b46a-11ea-8fba-f9784a4f50a0.png)
