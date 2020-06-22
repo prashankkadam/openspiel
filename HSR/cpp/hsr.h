@@ -34,21 +34,22 @@ namespace hsr {
 // Constants.
 inline constexpr int kNumPlayers = 2;
 inline constexpr int kNumRows = 1;
-inline constexpr int kNumCols = 8;                      // this is the n (number of rungs)
+inline constexpr int kNumCols = 7;                      // this is the n (number of rungs)
 inline constexpr int kNumCells = kNumRows * kNumCols;
-inline constexpr int kCellStates = kNumPlayers;         // empty, 'x'.
+inline constexpr int kCellStates = 1 + kNumPlayers;         // empty, 'x', 'o'.
 
 inline constexpr int kTests = 3;                        // this is the q (number of tests)
-inline constexpr int kJars = 3;                         // this is the k (number of jars)
+inline constexpr int kJars = 2;                         // this is the k (number of jars)
 
-// states calculated based on the possible combinations of 4 actions (number of tests). Note that this will be
+// states calculated based on the possible combinations of actions (number of tests). Note that this will be
 // an optimistic estimate
-inline constexpr int kNumberStates = 336;
+inline constexpr int kNumberStates = 6585;
 
 // State of a cell.
 enum class CellState {
   kEmpty,
   kCross,
+  kNought
 };
 
 // State of an in-play game.
@@ -89,7 +90,7 @@ class HSRState : public State {
   int current_part_ = 0;
   int current_tests_ = 0;             // Initialize the number of tests with zero
   int current_jars_ = kJars;          // Initialize the number of jars with the maximum allowed number
-  int previous_move_ = kNumCells;     // Previous move is initialized with the last cell value
+  int previous_move_ = kNumCells - 1;     // Previous move is initialized with the last cell value
   int num_moves_ = 0;
 };
 

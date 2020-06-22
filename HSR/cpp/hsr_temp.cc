@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "open_spiel/games/hsr.h"
+#include "open_spiel/games/hsr_temp.h"
 
 #include <algorithm>
 #include <memory>
@@ -23,13 +23,13 @@
 #include "open_spiel/utils/tensor_view.h"
 
 namespace open_spiel {
-namespace hsr {
+namespace hsr_temp {
 namespace {
 
 // Facts about the game.
 const GameType kGameType{
-    /*short_name=*/"hsr",
-    /*long_name=*/"HSR",
+    /*short_name=*/"hsr_temp",
+    /*long_name=*/"HSR Temp",
     GameType::Dynamics::kSequential,
     GameType::ChanceMode::kDeterministic,
     GameType::Information::kPerfectInformation,
@@ -45,7 +45,7 @@ const GameType kGameType{
 };
 
 std::shared_ptr<const Game> Factory(const GameParameters& params) {
-  return std::shared_ptr<const Game>(new HSRGame(params));
+  return std::shared_ptr<const Game>(new HSRTempGame(params));
 }
 
 REGISTER_SPIEL_GAME(kGameType, Factory);
@@ -68,114 +68,84 @@ std::string StateToString(CellState state) {
   switch (state) {
     case CellState::kEmpty:
       return ".";
-    case CellState::kCross:
-      return "x";
     case CellState::kNought:
       return "o";
+    case CellState::kCross:
+      return "x";
     default:
       SpielFatalError("Unknown state.");
   }
 }
 
-void HSRState::DoApplyAction(Action move) {
-
-  if (current_player_ == 0){
-
+void HSRTempState::DoApplyAction(Action move) {
+  if (current_player_ == 0) {
     SPIEL_CHECK_EQ(board_[move], CellState::kEmpty);
     board_[move] = PlayerToState(CurrentPlayer());
     if (board_[move - 1] == CellState::kCross && board_[move + 1] == CellState::kCross) {
-      outcome_ = Player{0};
-      return;
+       outcome_ = Player{0};
+       return;
     } else if (board_[move - 1] == CellState::kCross && move == kNumCells - 1) {
-      outcome_ = Player{0};
-      return;
+       outcome_ = Player{0};
+       return;
     } else if (move == 0 && board_[move + 1] == CellState::kCross) {
-      outcome_ = Player{0};
-      return;
+       outcome_ = Player{0};
+       return;
     }
     previous_move_ = move;
     num_moves_ += 1;
-    current_tests_ += 1;
-
   } else if (current_player_ == 1) {
     current_part_ = move;
-    if (current_part_ == 1) {
-      for (int cell = 0; cell < previous_move_; ++cell) {
-        board_[cell] = CellState::kCross;
-      }
-    } else if (current_part_ == 0) {
-      for (int cell = previous_move_ + 1; cell < kNumCells; ++cell) {
-        board_[cell] = CellState::kCross;
-      }
-      current_jars_ -= 1;
-    }
   }
-
-  if (IsFull()) { outcome_ = Player{0}; return;}
-  if (current_tests_ >= kTests) { outcome_ = Player{1}; return;}
-  if (current_jars_ == 0) { outcome_ = Player{1}; return;}
-
   current_player_ = 1 - current_player_;
 }
 
-std::vector<Action> HSRState::LegalActions() const {
+std::vector<Action> HSRTempState::LegalActions() const {
   if (IsTerminal()) return {};
   // Can move in any empty cell.
   std::vector<Action> moves;
-//  int move_op [] = { 0,1 };
 
-  if (current_player_ == 0){
-    if (current_part_ == 0) {
-      if (previous_move_ == 1) {
-        moves.push_back(0);
-      } else {
-        for (int cell = 1; cell < previous_move_; ++cell) {
-          if (board_[cell] == CellState::kEmpty) {
-            moves.push_back(cell);
-          }
-        }
+  if (current_player_ == 0) {
+    for (int cell = 0; cell < 4; ++cell) {
+      if (board_[cell] == CellState::kEmpty) {
+        moves.push_back(cell);
       }
-    } else if (current_part_ == 1) {
-      if (previous_move_ == kNumCells - 2) {
-        moves.push_back(kNumCells - 1);
-      } else {
-        for (int cell = previous_move_ + 1; cell < kNumCells - 1; ++cell) {
-          if (board_[cell] == CellState::kEmpty) {
-            moves.push_back(cell);
-          }
-        }
-      }
-     }
-//     if (previous_move_ == 1 && board_[0] == CellState::kEmpty) {
-//        moves.push_back(0);
-//     } else if (previous_move_ == kNumCells - 2 && board_[kNumCells - 1] == CellState::kEmpty) {
-//        moves.push_back(kNumCells - 1);
-//     }
-
+    }
   } else if (current_player_ == 1) {
-    if (board_[previous_move_ - 1] == CellState::kEmpty) {
-      moves.push_back(0);
-    }
-    if (board_[previous_move_ + 1] == CellState::kEmpty) {
-      moves.push_back(1);
-    }
+      for (int cell = 4; cell < kNumCells; ++cell) {
+        if (board_[cell] == CellState::kEmpty) {
+          moves.push_back(cell);
+        }
+      }
+      moves.push_back(-1);
   }
   return moves;
 }
 
-std::string HSRState::ActionToString(Player player,
+std::string HSRTempState::ActionToString(Player player,
                                            Action action_id) const {
   return absl::StrCat(StateToString(PlayerToState(player)), "(",
                       action_id / kNumCols, ",", action_id % kNumCols, ")");
 }
 
-bool HSRState::IsFull() const { return num_moves_ == kNumCells; }
+bool HSRTempState::HasLine(Player player) const {
+  CellState c = PlayerToState(player);
+  return (board_[0] == c && board_[1] == c && board_[2] == c) ||
+         (board_[3] == c && board_[4] == c && board_[5] == c) ||
+         (board_[6] == c && board_[7] == c && board_[8] == c) ;
+//         (board_[0] == c && board_[3] == c && board_[6] == c) ||
+//         (board_[1] == c && board_[4] == c && board_[7] == c) ||
+//         (board_[2] == c && board_[5] == c && board_[8] == c) ||
+//         (board_[0] == c && board_[4] == c && board_[8] == c) ||
+//         (board_[2] == c && board_[4] == c && board_[6] == c);
+}
 
-HSRState::HSRState(std::shared_ptr<const Game> game) : State(game) {
+bool HSRTempState::IsFull() const { return num_moves_ == kNumCells; }
+
+HSRTempState::HSRTempState(std::shared_ptr<const Game> game) : State(game) {
   std::fill(begin(board_), end(board_), CellState::kEmpty);
 }
 
-std::string HSRState::ToString() const {
+std::string HSRTempState::ToString() const {
   std::string str;
   for (int r = 0; r < kNumRows; ++r) {
     for (int c = 0; c < kNumCols; ++c) {
@@ -188,11 +158,11 @@ std::string HSRState::ToString() const {
   return str;
 }
 
-bool HSRState::IsTerminal() const {
+bool HSRTempState::IsTerminal() const {
   return outcome_ != kInvalidPlayer || IsFull();
 }
 
-std::vector<double> HSRState::Returns() const {
+std::vector<double> HSRTempState::Returns() const {
   if (outcome_ == Player{0}) {
     return {1.0, -1.0};
   } else if (outcome_ == Player{1}) {
@@ -202,19 +172,19 @@ std::vector<double> HSRState::Returns() const {
   }
 }
 
-std::string HSRState::InformationStateString(Player player) const {
+std::string HSRTempState::InformationStateString(Player player) const {
   SPIEL_CHECK_GE(player, 0);
   SPIEL_CHECK_LT(player, num_players_);
   return HistoryString();
 }
 
-std::string HSRState::ObservationString(Player player) const {
+std::string HSRTempState::ObservationString(Player player) const {
   SPIEL_CHECK_GE(player, 0);
   SPIEL_CHECK_LT(player, num_players_);
   return ToString();
 }
 
-void HSRState::ObservationTensor(Player player,
+void HSRTempState::ObservationTensor(Player player,
                                        std::vector<double>* values) const {
   SPIEL_CHECK_GE(player, 0);
   SPIEL_CHECK_LT(player, num_players_);
@@ -226,7 +196,7 @@ void HSRState::ObservationTensor(Player player,
   }
 }
 
-void HSRState::UndoAction(Player player, Action move) {
+void HSRTempState::UndoAction(Player player, Action move) {
   board_[move] = CellState::kEmpty;
   current_player_ = player;
   outcome_ = kInvalidPlayer;
@@ -234,12 +204,12 @@ void HSRState::UndoAction(Player player, Action move) {
   history_.pop_back();
 }
 
-std::unique_ptr<State> HSRState::Clone() const {
-  return std::unique_ptr<State>(new HSRState(*this));
+std::unique_ptr<State> HSRTempState::Clone() const {
+  return std::unique_ptr<State>(new HSRTempState(*this));
 }
 
-HSRGame::HSRGame(const GameParameters& params)
+HSRTempGame::HSRTempGame(const GameParameters& params)
     : Game(kGameType, params) {}
 
-}  // namespace hsr
+}  // namespace hsr_temp
 }  // namespace open_spiel
