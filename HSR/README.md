@@ -43,3 +43,9 @@ Running HSR with Alpha-Zero:
 
 Running HSR with MPV-MCTS:
 ![hsr_mpv(2,3,7)](https://user-images.githubusercontent.com/17771219/85293188-ffd67800-b46a-11ea-8fba-f9784a4f50a0.png)
+
+
+### HSR game convergence evaluation 
+HSR config: (k,q,n) = (2,3,7) \
+Running HSR with Alpha-Zero:
+![myplot_2](https://user-images.githubusercontent.com/17771219/87185404-b635bc00-c2b7-11ea-9602-0764b2f98905.png)
