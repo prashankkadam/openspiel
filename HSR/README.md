@@ -49,7 +49,7 @@ Running HSR with MPV-MCTS:
 HSR config: (k,q,n) = (2,3,7) \
 Running HSR with Alpha-Zero:
 
-![myplot_2](https://user-images.githubusercontent.com/17771219/87185404-b635bc00-c2b7-11ea-9602-0764b2f98905.png)
+![myplot_3](https://user-images.githubusercontent.com/17771219/87186453-87b8e080-c2b9-11ea-8b11-ea979ade36fd.png)
 
 Blue - Proponent, Orange - Opponent
 
