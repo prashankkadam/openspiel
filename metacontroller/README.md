@@ -20,3 +20,12 @@ The following are the results for basic tests with vanilla Alpha-Zero using UCT 
 ![Figure_1](https://user-images.githubusercontent.com/17771219/83939691-e49e1400-a7ac-11ea-99f0-c588a9309306.png)
 
 We can see a slight drop in the loss for the Metaacontroller over UCT algorithm. The prediction accuracy and absolute value predictions show clear improvements in Metacontroller over UCB. Note that we should be more concerned about the MCTS absolute value prediction accuracy as our multiarm bandit directly affects this parameter, here, Metacontroller clearly outperforms the UCT algorithm.
+
+#### MPV vs Metacontroller added Elo ratings:
+
+MPV:
+![output](https://user-images.githubusercontent.com/17771219/91247169-a9faa680-e71f-11ea-95ea-37d4eccf7ce0.png)
+
+Metacontroller:
+![output](https://user-images.githubusercontent.com/17771219/91247148-9a7b5d80-e71f-11ea-8d43-0a73c5153f3b.png)
+
