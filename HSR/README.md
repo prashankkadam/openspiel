@@ -53,3 +53,10 @@ Running HSR with Alpha-Zero:
 
 Blue - Proponent, Orange - Opponent
 
+### HSR (3,3,8):
+![alpharank](https://user-images.githubusercontent.com/17771219/92991928-eadf1300-f4b4-11ea-9f4e-9f5a073b6323.png)
+![elorating](https://user-images.githubusercontent.com/17771219/92991929-ee729a00-f4b4-11ea-9892-e2dcdeaed1ae.png)
+
+### HSR (4,4,16):
+![alpharank](https://user-images.githubusercontent.com/17771219/92991941-f8949880-f4b4-11ea-9f7e-dcaf77ef8978.png)
+![elorating](https://user-images.githubusercontent.com/17771219/92991949-04805a80-f4b5-11ea-899e-cf96b4f8437c.png)
