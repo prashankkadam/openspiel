@@ -34,12 +34,12 @@ namespace hsr {
 // Constants.
 inline constexpr int kNumPlayers = 2;
 inline constexpr int kNumRows = 1;
-inline constexpr int kNumCols = 7;                      // this is the n (number of rungs)
+inline constexpr int kNumCols = 127;                      // this is the n (number of rungs)
 inline constexpr int kNumCells = kNumRows * kNumCols;
 inline constexpr int kCellStates = 1 + kNumPlayers;         // empty, 'x', 'o'.
 
-inline constexpr int kTests = 3;                        // this is the q (number of tests)
-inline constexpr int kJars = 2;                         // this is the k (number of jars)
+inline constexpr int kTests = 7;                        // this is the q (number of tests)
+inline constexpr int kJars = 7;                         // this is the k (number of jars)
 
 // states calculated based on the possible combinations of actions (number of tests). Note that this will be
 // an optimistic estimate
@@ -70,7 +70,7 @@ class HSRState : public State {
   std::string InformationStateString(Player player) const override;
   std::string ObservationString(Player player) const override;
   void ObservationTensor(Player player,
-                         std::vector<double>* values) const override;
+                         absl::Span<float> values) const override;
   std::unique_ptr<State> Clone() const override;
   void UndoAction(Player player, Action move) override;
   std::vector<Action> LegalActions() const override;
@@ -106,9 +106,6 @@ class HSRGame : public Game {
   double MinUtility() const override { return -1; }
   double UtilitySum() const override { return 0; }
   double MaxUtility() const override { return 1; }
-  std::shared_ptr<const Game> Clone() const override {
-    return std::shared_ptr<const Game>(new HSRGame(*this));
-  }
   std::vector<int> ObservationTensorShape() const override {
     return {kCellStates, kNumRows, kNumCols};
   }
